@@ -13,6 +13,7 @@ import (
 	"github.com/CPU-commits/USACH.dev-Server/forms"
 	"github.com/CPU-commits/USACH.dev-Server/models"
 	"github.com/CPU-commits/USACH.dev-Server/res"
+	"github.com/CPU-commits/USACH.dev-Server/utils"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -75,6 +76,38 @@ func (r *RepositoryService) GetRepoAccess(
 	}
 
 	return response, nil
+}
+
+func (r *RepositoryService) HasRepoAccess(
+	idObjRepository primitive.ObjectID,
+	idUser string,
+) (bool, *res.ErrorRes) {
+	// Repo access
+	repoAccess, errRes := r.GetRepoAccess(idObjRepository)
+	if errRes != nil {
+		return false, errRes
+	}
+	if repoAccess["access"] == "private-group" {
+		idObjUser, err := primitive.ObjectIDFromHex(idUser)
+		if err != nil {
+			return false, nil
+		}
+
+		hasAccess, err := utils.AnyMatch(
+			repoAccess["custom_access"],
+			func(x interface{}) bool {
+				return x.(primitive.ObjectID) != idObjUser
+			},
+		)
+		if err != nil {
+			return false, &res.ErrorRes{
+				Err:        err,
+				StatusCode: http.StatusInternalServerError,
+			}
+		}
+		return hasAccess, nil
+	}
+	return true, nil
 }
 
 func (r *RepositoryService) GetRepositoryId(
@@ -160,13 +193,13 @@ func (r *RepositoryService) GetRepository(
 	username,
 	repositoryName,
 	idUserREQ string,
-) (*Repository, *models.Like, *res.ErrorRes) {
+) (*models.RepositoryRes, *models.Like, *res.ErrorRes) {
 	idObjRepository, errRes := r.GetRepositoryId(username, repositoryName)
 	if errRes != nil {
 		return nil, nil, errRes
 	}
 	// Get repo
-	var repository []*Repository
+	var repository []*models.RepositoryRes
 
 	filterRepo := bson.D{{
 		Key:   "_id",
@@ -247,16 +280,16 @@ func (r *RepositoryService) GetRepositories(
 	search string,
 	page int,
 	total bool,
-) ([]Repository, int64, *res.ErrorRes) {
+) ([]models.RepositoryRes, int64, *res.ErrorRes) {
 	idObjUser, err := primitive.ObjectIDFromHex(idUser)
-	if err != nil && idUser == "" {
+	if err != nil && idUser != "" {
 		return nil, 0, &res.ErrorRes{
 			Err:        err,
 			StatusCode: http.StatusBadRequest,
 		}
 	}
 	// Get repositories
-	var repositories []Repository
+	var repositories []models.RepositoryRes
 	// Filter
 	orFilter := bson.A{
 		bson.M{"access": "public"},
@@ -396,7 +429,7 @@ func (r *RepositoryService) GetUserRepositories(
 	idUser string,
 ) ([]*models.Repository, *res.ErrorRes) {
 	idObjUser, err := primitive.ObjectIDFromHex(idUser)
-	if err != nil && idUser == "" {
+	if err != nil && idUser != "" {
 		return nil, &res.ErrorRes{
 			Err:        err,
 			StatusCode: http.StatusBadRequest,

@@ -155,6 +155,9 @@ func Init() {
 	dis := router.Group(
 		"/api/v1/discussion",
 	)
+	comment := router.Group(
+		"/api/v1/comments",
+	)
 	{
 		// Init controllers
 		authController := new(controllers.AuthController)
@@ -162,6 +165,7 @@ func Init() {
 		userController := new(controllers.UserController)
 		repoController := new(controllers.RepositoryController)
 		systemFileController := new(controllers.SystemFileController)
+		commentController := new(controllers.CommentController)
 		// Define routes
 		// Authentication
 		auth.POST(
@@ -185,6 +189,15 @@ func Init() {
 			":idUser",
 			userController.GetUser,
 		)
+		user.GET(
+			"avatar/:username",
+			userController.GetAvatar,
+		)
+		user.PUT(
+			"profile",
+			middlewares.JWTMiddleware(false),
+			userController.UpdateProfile,
+		)
 		// Repository
 		repo.GET(
 			"",
@@ -199,21 +212,21 @@ func Init() {
 		repo.GET(
 			":username/:repository",
 			middlewares.JWTMiddleware(true),
-			middlewares.RepoAccess(),
+			middlewares.RepoAccess(false),
 			middlewares.SetUserID(),
 			repoController.GetRepository,
 		)
 		repo.GET(
 			":username/:repository/:folder",
 			middlewares.JWTMiddleware(true),
-			middlewares.RepoAccess(),
+			middlewares.RepoAccess(false),
 			middlewares.SetUserID(),
 			systemFileController.GetFolder,
 		)
 		repo.GET(
 			"download/:repository",
 			middlewares.JWTMiddleware(true),
-			middlewares.RepoAccess(),
+			middlewares.RepoAccess(false),
 			repoController.DownloadRepository,
 		)
 		repo.POST(
@@ -257,10 +270,51 @@ func Init() {
 			repoController.DeleteLink,
 		)
 		// Discussion
+		dis.GET(
+			"",
+			middlewares.JWTMiddleware(true),
+			middlewares.RepoAccess(true),
+			discussionController.GetDiscussions,
+		)
+		dis.GET(
+			":discussion",
+			middlewares.JWTMiddleware(true),
+			discussionController.GetDiscussion,
+		)
+		dis.GET(
+			":discussion/has_access",
+			middlewares.JWTMiddleware(true),
+			discussionController.HasAccess,
+		)
+		dis.GET(
+			":discussion/:image",
+			discussionController.GetImage,
+		)
 		dis.POST(
 			"",
 			middlewares.JWTMiddleware(false),
 			discussionController.UploadDiscussion,
+		)
+		dis.POST(
+			"reaction/:discussion",
+			middlewares.JWTMiddleware(false),
+			discussionController.ReactDiscussion,
+		)
+		dis.DELETE(
+			"reaction/:discussion",
+			middlewares.JWTMiddleware(false),
+			discussionController.DeleteReaction,
+		)
+		// Comments
+		comment.GET(
+			"discussion/:discussion",
+			middlewares.JWTMiddleware(true),
+			commentController.GetComments,
+		)
+		comment.POST(
+			":discussion",
+			middlewares.JWTMiddleware(false),
+			commentController.Comment,
 		)
 	}
 	// Route docs

@@ -32,3 +32,16 @@ func AllMatch(slice interface{}, condition func(x interface{}) bool) (bool, erro
 	}
 	return true, nil
 }
+
+func Filter[T comparable](
+	slice []T,
+	condition func(x T) bool,
+) []T {
+	var newSlice []T
+	for _, v := range slice {
+		if condition(v) {
+			newSlice = append(newSlice, v)
+		}
+	}
+	return newSlice
+}

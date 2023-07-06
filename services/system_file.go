@@ -27,6 +27,17 @@ func (s *SystemFileService) FileHasRef(nameFile string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	if hasRef {
+		return true, nil
+	}
+
+	hasRef, err = discussionModel.Exists(bson.D{{
+		Key:   "image",
+		Value: nameFile,
+	}})
+	if err != nil {
+		return false, err
+	}
 
 	return hasRef, nil
 }
@@ -36,7 +47,7 @@ func (s *SystemFileService) GetFolder(
 	repoName,
 	idFolder,
 	idUserREQ string,
-) (*SystemFile, map[string]interface{}, *res.ErrorRes) {
+) (*models.SystemFileRes, map[string]interface{}, *res.ErrorRes) {
 	repository, _, errRes := repoService.GetRepository(username, repoName, idUserREQ)
 	if errRes != nil {
 		return nil, nil, errRes
@@ -62,7 +73,7 @@ func (s *SystemFileService) GetFolder(
 		}
 	}
 	// Get rest of elements
-	var folderChildrens []*SystemFile
+	var folderChildrens []*models.SystemFileRes
 
 	idObjFolder, _ := primitive.ObjectIDFromHex(idFolder)
 
@@ -296,10 +307,7 @@ func (s *SystemFileService) isElementInRepo(
 		repository.SystemFile,
 		func(x interface{}) bool {
 			elementRepo := x.(primitive.ObjectID)
-			if elementRepo == element.ID {
-				return true
-			}
-			return false
+			return elementRepo == element.ID
 		},
 	)
 	if err != nil {

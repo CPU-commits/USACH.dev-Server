@@ -11,5 +11,6 @@ func Init() {
 		v.RegisterValidation("isValidAccess", isValidAccess)
 		v.RegisterValidation("isLinkType", isLinkType)
 		v.RegisterValidation("isMongoId", isMongoId)
+		v.RegisterValidation("isReaction", isReaction)
 	}
 }

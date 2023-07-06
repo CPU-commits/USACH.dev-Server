@@ -64,6 +64,7 @@ func Init() {
 					hasRef, err := systemFileService.FileHasRef(file.Name())
 					if err != nil {
 						log.Println("3. No se completó exitosamente el job Delete unref files")
+						return
 					}
 					if !hasRef {
 						utils.DeleteFile(file.Name())

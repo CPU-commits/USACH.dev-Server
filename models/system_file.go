@@ -29,6 +29,18 @@ type SystemFile struct {
 	Date        primitive.DateTime   `json:"date" bson:"date"`
 }
 
+// Responses
+// System File
+type SystemFileRes struct {
+	ID          primitive.ObjectID `json:"_id" bson:"_id,omitempty"`
+	FileType    string             `json:"file_type,omitempty" bson:"file_type,omitempty"`
+	Name        string             `json:"name" bson:"name"`
+	Childrens   []*SystemFile      `json:"childrens,omitempty" bson:"childrens,omitempty"`
+	Content     string             `json:"content,omitempty" bson:"content,omitempty"`
+	IsDirectory bool               `json:"is_directory" bson:"is_directory"`
+	Date        primitive.DateTime `json:"date" bson:"date"`
+}
+
 type SystemFileModel struct{}
 
 func (repo *SystemFileModel) Use() *mongo.Collection {

@@ -29,7 +29,7 @@ type Repository struct {
 	Owner        primitive.ObjectID   `json:"owner" bson:"owner"`
 	Name         string               `json:"name" bson:"name"`
 	Stars        int                  `json:"stars"`
-	Tags         []string             `json:"tags" bson:"tags"`
+	Tags         []string             `json:"tags,omitempty" bson:"tags,omitempty"`
 	Content      string               `json:"content" bson:"content"`
 	SystemFile   []primitive.ObjectID `json:"system_file,omitempty" bson:"system_file,omitempty"`
 	Description  string               `json:"description,omitempty" bson:"description,omitempty"`
@@ -40,6 +40,25 @@ type Repository struct {
 	CustomAccess []primitive.ObjectID `json:"custom_access,omitempty" bson:"custom_access,omitempty"`
 	UpdatedDate  primitive.DateTime   `json:"updated_date" bson:"updated_date"`
 	CreatedDate  primitive.DateTime   `json:"created_date" bson:"created_date"`
+}
+
+// Responses
+type RepositoryRes struct {
+	ID           primitive.ObjectID   `json:"_id" bson:"_id,omitempty"`
+	Owner        SimpleUser           `json:"owner" bson:"owner"`
+	Name         string               `json:"name" bson:"name"`
+	Content      string               `json:"content,omitempty" bson:"content,omitempty"`
+	Stars        int                  `json:"stars"`
+	SystemFile   []*SystemFile        `json:"system_file,omitempty" bson:"system_file,omitempty"`
+	Description  string               `json:"description,omitempty" bson:"description,omitempty"`
+	Access       string               `json:"access" bson:"access"`
+	Views        int                  `json:"views" bson:"views"`
+	Links        []*Link              `json:"links,omitempty" bson:"links,omitempty"`
+	Downloads    int                  `json:"downloads" bson:"downloads"`
+	CustomAccess []primitive.ObjectID `json:"custom_access,omitempty" bson:"custom_access,omitempty"`
+	UpdatedDate  primitive.DateTime   `json:"updated_date" bson:"updated_date"`
+	CreatedDate  primitive.DateTime   `json:"created_date" bson:"created_date"`
+	Tags         []string             `json:"tags" bson:"tags"`
 }
 
 type RepositoryModel struct{}

@@ -1,6 +1,11 @@
 package models
 
 import (
+	"errors"
+	"time"
+
+	"github.com/CPU-commits/USACH.dev-Server/db"
+	"github.com/CPU-commits/USACH.dev-Server/forms"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -18,10 +23,11 @@ type Media struct {
 }
 
 type Profile struct {
-	ID          primitive.ObjectID `json:"_id" bson:"_id"`
+	ID          primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
 	User        primitive.ObjectID `json:"user" bson:"user"`
+	Avatar      string             `json:"avatar,omitempty" bson:"avatar,omitempty"`
 	Media       *Media             `json:"media,omitempty" bson:"media,omitempty"`
-	Description string             `json:"description" bson:"description"`
+	Description string             `json:"description,omitempty" bson:"description,omitempty"`
 	Date        primitive.DateTime `json:"date" bson:"date"`
 }
 
@@ -29,6 +35,40 @@ type ProfileModel struct{}
 
 func (profile *ProfileModel) Use() *mongo.Collection {
 	return DbConnect.GetCollection(PROFILE_COLLECTION)
+}
+
+func (*ProfileModel) NewModel(
+	idUser primitive.ObjectID,
+	profile *forms.ProfileForm,
+	avatar string,
+) *Profile {
+	profileModel := &Profile{
+		User:   idUser,
+		Avatar: avatar,
+		Date:   primitive.NewDateTimeFromTime(time.Now()),
+	}
+	if profile != nil {
+		profileModel.Description = profile.Description
+	}
+	return profileModel
+}
+
+func (pM *ProfileModel) Exists(filter bson.D) (bool, error) {
+	var profile *Profile
+
+	opts := options.FindOne().SetProjection(bson.D{{
+		Key:   "_id",
+		Value: 1,
+	}})
+
+	cursor := pM.Use().FindOne(db.Ctx, filter, opts)
+	if err := cursor.Decode(&profile); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func init() {
@@ -52,6 +92,9 @@ func init() {
 			"description": bson.M{
 				"bsonType":  "string",
 				"maxLength": 300,
+			},
+			"avatar": bson.M{
+				"bsonType": "string",
 			},
 			"media": bson.M{
 				"bsonType": "object",
@@ -83,4 +126,8 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func NewProfileModel() *ProfileModel {
+	return &ProfileModel{}
 }

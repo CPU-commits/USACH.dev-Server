@@ -1,8 +1,11 @@
 package models
 
 import (
+	"errors"
 	"mime/multipart"
+	"time"
 
+	"github.com/CPU-commits/USACH.dev-Server/db"
 	"github.com/CPU-commits/USACH.dev-Server/forms"
 	"github.com/CPU-commits/USACH.dev-Server/utils"
 	"github.com/thanhpk/randstr"
@@ -24,21 +27,46 @@ type Discussion struct {
 	Tags       []string           `json:"tags,omitempty" bson:"tags,omitempty"`
 	Owner      primitive.ObjectID `json:"owner" bson:"owner"`
 	Code       string             `json:"code" bson:"code"`
+	Snippet    string             `json:"snippet" bson:"snippet"`
+	CreatedAt  primitive.DateTime `json:"created_at" bson:"created_at"`
+	UpdatedAt  primitive.DateTime `json:"updated_at" bson:"updated_at"`
+}
+
+// Responses
+// Reactions
+type DiscussionRes struct {
+	ID           primitive.ObjectID `json:"_id" bson:"_id,omitempty"`
+	Title        string             `json:"title" bson:"title"`
+	Image        string             `json:"image,omitempty" bson:"image,omitempty"`
+	Repository   primitive.ObjectID `json:"repository,omitempty" bson:"repository,omitempty"`
+	Text         string             `json:"text" bson:"text"`
+	Tags         []string           `json:"tags,omitempty" bson:"tags,omitempty"`
+	Owner        primitive.ObjectID `json:"owner" bson:"owner"`
+	Code         string             `json:"code" bson:"code"`
+	Snippet      string             `json:"snippet" bson:"snippet"`
+	CreatedAt    primitive.DateTime `json:"created_at" bson:"created_at"`
+	UpdatedAt    primitive.DateTime `json:"updated_at" bson:"updated_at"`
+	Reactions    []ReactionRes      `json:"reactions,omitempty" bson:"reactions,omitempty"`
+	UserReaction Reaction           `json:"user_reaction,omitempty" bson:"user_reaction,omitempty"`
 }
 
 type DiscussionModel struct{}
 
-func (d *DiscussionModel) NewModel(
+func (*DiscussionModel) NewModel(
 	discussion *forms.DiscussionForm,
 	idUser primitive.ObjectID,
 	image *multipart.FileHeader,
 ) (*Discussion, error) {
+	now := primitive.NewDateTimeFromTime(time.Now())
 	discussionModel := &Discussion{
-		Title: discussion.Title,
-		Text:  discussion.Text,
-		Tags:  discussion.Tags,
-		Owner: idUser,
-		Code:  randstr.Hex(16),
+		Title:     discussion.Title,
+		Text:      discussion.Text,
+		Tags:      discussion.Tags,
+		Owner:     idUser,
+		Code:      randstr.Hex(16),
+		Snippet:   discussion.Snippet,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 	if discussion.Repository != "" {
 		idObjRepository, _ := primitive.ObjectIDFromHex(discussion.Repository)
@@ -53,6 +81,25 @@ func (d *DiscussionModel) NewModel(
 	}
 
 	return discussionModel, nil
+}
+
+func (d *DiscussionModel) Exists(filter bson.D) (bool, error) {
+	var discussion *Discussion
+
+	options := options.FindOne().SetProjection(bson.D{{
+		Key:   "_id",
+		Value: 1,
+	}})
+	cursor := d.Use().FindOne(db.Ctx, filter, options)
+
+	if err := cursor.Decode(&discussion); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (d *DiscussionModel) Use() *mongo.Collection {

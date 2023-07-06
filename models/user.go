@@ -33,6 +33,24 @@ type User struct {
 	Date     primitive.DateTime `json:"date,omitempty" bson:"date,omitempty"`
 }
 
+// Responses
+// User
+type UserRes struct {
+	ID       primitive.ObjectID `json:"_id" bson:"_id,omitempty"`
+	FullName string             `json:"full_name" bson:"full_name"`
+	Username string             `json:"username" bson:"username"`
+	Email    string             `json:"email" bson:"email"`
+	Role     string             `json:"role" bson:"role"`
+	Date     primitive.DateTime `json:"date,omitempty" bson:"date,omitempty"`
+	Profile  *Profile           `json:"profile,omitempty"`
+}
+
+type SimpleUser struct {
+	ID       primitive.ObjectID `json:"_id" bson:"_id"`
+	FullName string             `json:"full_name" bson:"full_name"`
+	Username string             `json:"username" bson:"username"`
+}
+
 type UsersModel struct{}
 
 func (users *UsersModel) Use() *mongo.Collection {

@@ -14,15 +14,18 @@ var (
 	systemFileModel = models.NewSystemFileModel()
 	likesModel      = models.NewLikesModel()
 	discussionModel = models.NewDiscussionModel()
+	reactionModel   = models.NewReactionModel()
+	commentModel    = models.NewCommentModel()
+	profileModel    = models.NewProfileModel()
 )
 
 // Services
 var (
 	userService       = NewUserService()
 	repoService       = NewRepositoryService()
-	profileService    = NewProfileService()
 	systemFileService = NewSystemFileService()
 	likeService       = NewLikeService()
+	discussionService = NewDiscussionService()
 )
 
 // Settings
@@ -30,3 +33,6 @@ var settingsData = settings.GetSettings()
 
 // Stack
 var mem = stack.NewStack()
+
+// Tasks
+var pubSubClient = stack.NewPubSubClient()

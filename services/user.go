@@ -2,6 +2,8 @@ package services
 
 import (
 	"errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"github.com/CPU-commits/USACH.dev-Server/models"
 	"github.com/CPU-commits/USACH.dev-Server/notifications/email"
 	"github.com/CPU-commits/USACH.dev-Server/res"
+	"github.com/CPU-commits/USACH.dev-Server/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -75,8 +78,8 @@ func (u *UserService) FindByEmail(email string) (*models.User, *res.ErrorRes) {
 	return user, nil
 }
 
-func (u *UserService) GetByUsername(username string, getProfile bool) (*User, *res.ErrorRes) {
-	var user []*User
+func (u *UserService) GetByUsername(username string, getProfile bool) (*models.UserRes, *res.ErrorRes) {
+	var user []*models.UserRes
 
 	// Pipeline
 	pipeline := mongo.Pipeline{
@@ -97,13 +100,31 @@ func (u *UserService) GetByUsername(username string, getProfile bool) (*User, *r
 		}},
 	}
 	if getProfile {
+		pipeline = append(
+			pipeline,
+			bson.D{{
+				Key: "$lookup",
+				Value: bson.M{
+					"from":         models.PROFILE_COLLECTION,
+					"localField":   "profile",
+					"foreignField": "_id",
+					"as":           "profile",
+				},
+			}},
+			bson.D{{
+				Key: "$addFields",
+				Value: bson.M{
+					"profile": bson.M{
+						"$arrayElemAt": bson.A{"$profile", 0},
+					},
+				},
+			}},
+		)
+	} else {
 		pipeline = append(pipeline, bson.D{{
-			Key: "$lookup",
+			Key: "$project",
 			Value: bson.M{
-				"from":         models.PROFILE_COLLECTION,
-				"localField":   "profile",
-				"foreignField": "_id",
-				"as":           "profile",
+				"profile": 0,
 			},
 		}})
 	}
@@ -127,7 +148,7 @@ func (u *UserService) GetByUsername(username string, getProfile bool) (*User, *r
 	return user[0], nil
 }
 
-func (u *UserService) GetUser(username string, getProfile bool) (*User, *res.ErrorRes) {
+func (u *UserService) GetUser(username string, getProfile bool) (*models.UserRes, *res.ErrorRes) {
 	// Get user
 	user, err := u.GetByUsername(username, getProfile)
 	if err != nil {
@@ -135,6 +156,25 @@ func (u *UserService) GetUser(username string, getProfile bool) (*User, *res.Err
 	}
 
 	return user, nil
+}
+
+func (uS *UserService) GetAvatar(username string, w io.Writer) *res.ErrorRes {
+	user, err := uS.GetByUsername(username, true)
+	if err != nil {
+		return err
+	}
+	if user.Profile != nil {
+		avatar, err := utils.GetFile(user.Profile.Avatar)
+		if err != nil {
+			return &res.ErrorRes{
+				Err:        err,
+				StatusCode: http.StatusInternalServerError,
+			}
+		}
+		w.Write(avatar)
+	}
+
+	return nil
 }
 
 func (u *UserService) CreateUser(userForm *forms.UserForm) *res.ErrorRes {
@@ -301,6 +341,106 @@ func (u *UserService) ActivateUser(token string) *res.ErrorRes {
 		}
 	}
 
+	return nil
+}
+
+func (*UserService) UpdateProfile(
+	idUser string,
+	profile *forms.ProfileForm,
+	avatarFile *multipart.FileHeader,
+) *res.ErrorRes {
+	// ObjectID
+	idObjUser, err := primitive.ObjectIDFromHex(idUser)
+	if err != nil {
+		return &res.ErrorRes{
+			Err:        err,
+			StatusCode: http.StatusBadRequest,
+		}
+	}
+	// Upload avatar
+	var avatar string
+
+	if avatarFile != nil {
+		avatar, err = utils.UploadFile(avatarFile)
+		if err != nil {
+			return &res.ErrorRes{
+				Err:        err,
+				StatusCode: http.StatusInternalServerError,
+			}
+		}
+	}
+	// Set profile
+	exists, err := profileModel.Exists(bson.D{{
+		Key:   "user",
+		Value: idObjUser,
+	}})
+	if err != nil {
+		return &res.ErrorRes{
+			Err:        err,
+			StatusCode: http.StatusServiceUnavailable,
+		}
+	}
+	if !exists {
+		modelProfile := profileModel.NewModel(
+			idObjUser,
+			profile,
+			avatar,
+		)
+		insertedId, err := profileModel.Use().InsertOne(db.Ctx, modelProfile)
+		if err != nil {
+			return &res.ErrorRes{
+				Err:        err,
+				StatusCode: http.StatusServiceUnavailable,
+			}
+		}
+		_, err = userModel.Use().UpdateOne(
+			db.Ctx,
+			bson.D{{
+				Key:   "_id",
+				Value: idObjUser,
+			}},
+			bson.D{{
+				Key: "$set",
+				Value: bson.M{
+					"profile": insertedId.InsertedID,
+				},
+			},
+			})
+		if err != nil {
+			return &res.ErrorRes{
+				Err:        err,
+				StatusCode: http.StatusServiceUnavailable,
+			}
+		}
+	} else {
+		var update bson.D
+		if profile != nil && profile.Description != "" {
+			update = append(update, bson.E{
+				Key:   "description",
+				Value: profile.Description,
+			})
+		}
+		if avatar != "" {
+			update = append(update, bson.E{
+				Key:   "avatar",
+				Value: avatar,
+			})
+		}
+
+		_, err := profileModel.Use().UpdateOne(db.Ctx, bson.D{{
+			Key:   "user",
+			Value: idObjUser,
+		}}, bson.D{{
+			Key:   "$set",
+			Value: update,
+		}})
+		if err != nil {
+			return &res.ErrorRes{
+				Err:        err,
+				StatusCode: http.StatusServiceUnavailable,
+			}
+		}
+	}
 	return nil
 }
 
