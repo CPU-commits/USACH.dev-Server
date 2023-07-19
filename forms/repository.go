@@ -37,7 +37,7 @@ var isRepositoryName validator.Func = func(fl validator.FieldLevel) bool {
 var isValidAccess validator.Func = func(fl validator.FieldLevel) bool {
 	access, ok := fl.Field().Interface().(string)
 	if ok {
-		return access == "public" || access == "private" || access == "private-group"
+		return access == "public" || access == "private" || access == "private-group" || access == ""
 	}
 	return true
 }

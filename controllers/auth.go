@@ -49,7 +49,7 @@ func (a *AuthController) ConfirmUser(c *gin.Context) {
 
 	c.Redirect(
 		http.StatusPermanentRedirect,
-		fmt.Sprintf("%s://%s/session?confirm=true", protocol, settingsData.CLIENT_URL),
+		fmt.Sprintf("%s://usach.dev/session?confirm=true", protocol),
 	)
 }
 
