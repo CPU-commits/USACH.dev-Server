@@ -257,7 +257,7 @@ func (u *UserService) CreateUser(userForm *forms.UserForm) *res.ErrorRes {
 		Subject:  "Confirma tu correo - USACH.dev",
 		Template: email.TEMPLATE_VALIDATE_USER,
 		TemplateParams: map[string]string{
-			"{{ BACKEND_URL }}":   "http://localhost:8080",
+			"{{ BACKEND_URL }}":   "https://backend.usach.dev",
 			"{{ CONFIRM_TOKEN }}": userToken.Token,
 		},
 	})
