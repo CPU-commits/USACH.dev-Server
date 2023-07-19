@@ -144,7 +144,7 @@ func (d *DiscussionController) UploadDiscussion(c *gin.Context) {
 	errRes := discussionService.UploadDiscussion(discussion, claims.UserID, image)
 	if errRes != nil {
 		c.AbortWithStatusJSON(errRes.StatusCode, &res.Response{
-			Message: err.Error(),
+			Message: errRes.Err.Error(),
 		})
 		return
 	}
