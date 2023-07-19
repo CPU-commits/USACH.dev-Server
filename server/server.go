@@ -91,16 +91,23 @@ func Init() {
 	docs.SwaggerInfo.Host = "localhost:8080"
 	// CORS
 	if settingsData.GO_ENV == "prod" {
-		httpOrigin := "http://" + settingsData.CLIENT_URL
-		httpsOrigin := "https://" + settingsData.CLIENT_URL
-		router.Use(cors.New(cors.Config{
-			AllowOrigins:     []string{httpOrigin, httpsOrigin},
+		config := cors.Config{
 			AllowMethods:     []string{"GET", "OPTIONS", "PUT", "DELETE", "POST"},
 			AllowCredentials: true,
 			AllowHeaders:     []string{"*"},
 			AllowWebSockets:  false,
 			MaxAge:           12 * time.Hour,
-		}))
+		}
+		if settingsData.CLIENT_URL == "*" {
+			config.AllowAllOrigins = true
+		} else {
+			httpOrigin := "http://" + settingsData.CLIENT_URL
+			httpsOrigin := "https://" + settingsData.CLIENT_URL
+
+			config.AllowOrigins = []string{httpOrigin, httpsOrigin}
+		}
+
+		router.Use(cors.New(config))
 	} else {
 		router.Use(cors.New(cors.Config{
 			AllowAllOrigins: true,
