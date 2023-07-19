@@ -23,6 +23,7 @@ WORKDIR /app
 
 RUN touch .env
 COPY --from=builder /app/app .
+COPY ./notifications/email/templates/ ./
 
 EXPOSE 8080
 
