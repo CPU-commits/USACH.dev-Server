@@ -294,7 +294,7 @@ func (s *SystemFileService) isElementInRepo(
 			return false, err
 		}
 
-		return s.isElementInRepo(element, idRepository)
+		return s.isElementInRepo(parentElement, idRepository)
 	}
 	repository, err := repoService.GetRepositoryById(idRepository)
 	if err != nil {
@@ -365,7 +365,7 @@ func (s *SystemFileService) NewRepoElement(
 	}
 	if !isOwner {
 		return nil, &res.ErrorRes{
-			Err:        err,
+			Err:        errors.New("no eres dueño del repositorio"),
 			StatusCode: http.StatusUnauthorized,
 		}
 	}
