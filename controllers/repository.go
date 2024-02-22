@@ -107,26 +107,38 @@ func (r *RepositoryController) GetUserRepositories(c *gin.Context) {
 func (r *RepositoryController) DownloadRepository(c *gin.Context) {
 	repository := c.Param("repository")
 	child := c.DefaultQuery("child", "")
+	// Set headers
+	var fileName string
+	var contentType string
+	if child != "" {
+		var err *res.ErrorRes
+		// Name
+		fileName, contentType, err = repoService.GetChildFileNameAndContentType(child)
+		if err != nil {
+			return
+		}
+	} else {
+		contentType = "application/octet-stream"
+		fileName = "repositorio.zip"
+	}
+	fmt.Printf("fileName: %v\n", fileName)
+	c.Writer.Header().Set(
+		"Content-Type",
+		contentType,
+	)
+	c.Writer.Header().Set(
+		"Content-Disposition",
+		fmt.Sprintf("attachment; filename='%s'", fileName),
+	)
 
 	c.Stream(func(w io.Writer) bool {
-		var err *res.ErrorRes
-		var fileName string
-
-		fileName, err = repoService.DownloadRepository(repository, child, w)
+		err := repoService.DownloadRepository(repository, child, w)
 		if err != nil {
 			c.AbortWithStatusJSON(err.StatusCode, &res.Response{
 				Message: err.Err.Error(),
 			})
 			return false
 		}
-		c.Writer.Header().Set(
-			"Content-Type",
-			"application/octet-stream",
-		)
-		c.Writer.Header().Set(
-			"Content-Disposition",
-			fmt.Sprintf("attachment; filename='%s.zip'", fileName),
-		)
 
 		return false
 	})

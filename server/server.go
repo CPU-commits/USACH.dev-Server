@@ -95,6 +95,7 @@ func Init() {
 			AllowMethods:     []string{"GET", "OPTIONS", "PUT", "DELETE", "POST"},
 			AllowCredentials: true,
 			AllowHeaders:     []string{"*"},
+			ExposeHeaders:    []string{"Content-Type", "Content-Disposition"},
 			AllowWebSockets:  false,
 			MaxAge:           12 * time.Hour,
 		}
@@ -112,6 +113,7 @@ func Init() {
 		router.Use(cors.New(cors.Config{
 			AllowAllOrigins: true,
 			AllowHeaders:    []string{"*"},
+			ExposeHeaders:   []string{"Content-Type", "Content-Disposition"},
 			AllowMethods:    []string{"GET", "OPTIONS", "PUT", "DELETE", "POST"},
 		}))
 	}

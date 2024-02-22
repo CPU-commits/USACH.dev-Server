@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
+	"io"
 	"mime/multipart"
 	"net/http"
 
@@ -172,7 +173,7 @@ func (s *SystemFileService) DownloadRepo(
 		}
 	}
 	for _, child := range repository.SystemFile {
-		errRes := s.DownloadChild(child.Hex(), zipWritter)
+		errRes := s.DownloadChild(child.Hex(), zipWritter, nil)
 		if errRes != nil {
 			return errRes
 		}
@@ -183,6 +184,7 @@ func (s *SystemFileService) DownloadRepo(
 func (s *SystemFileService) DownloadChild(
 	idChild string,
 	zipWritter *zip.Writer,
+	fileMem *io.Writer,
 ) *res.ErrorRes {
 	element, errRes := s.GetElementById(idChild)
 	if errRes != nil {
@@ -196,27 +198,39 @@ func (s *SystemFileService) DownloadChild(
 				StatusCode: http.StatusInternalServerError,
 			}
 		}
-		zipFile, err := zipWritter.Create(element.Name)
-		if err != nil {
-			return &res.ErrorRes{
-				Err:        err,
-				StatusCode: http.StatusInternalServerError,
+		if fileMem == nil {
+			zipFile, err := zipWritter.Create(element.Name)
+			if err != nil {
+				return &res.ErrorRes{
+					Err:        err,
+					StatusCode: http.StatusInternalServerError,
+				}
+			}
+			_, err = zipFile.Write(file)
+			if err != nil {
+				return &res.ErrorRes{
+					Err:        err,
+					StatusCode: http.StatusInternalServerError,
+				}
+			}
+		} else {
+			buffer := bytes.NewBuffer(file)
+			_, err = io.Copy(*fileMem, buffer)
+			if err != nil {
+				return &res.ErrorRes{
+					Err:        err,
+					StatusCode: http.StatusInternalServerError,
+				}
 			}
 		}
-		_, err = zipFile.Write(file)
-		if err != nil {
-			return &res.ErrorRes{
-				Err:        err,
-				StatusCode: http.StatusInternalServerError,
-			}
-		}
+		return nil
 	} else if element.IsDirectory && len(element.Childrens) > 0 {
 		// Create new zip
 		buffer := bytes.NewBuffer(nil)
 		newZipWritter := zip.NewWriter(buffer)
 
 		for _, child := range element.Childrens {
-			errRes = s.DownloadChild(child.Hex(), newZipWritter)
+			errRes = s.DownloadChild(child.Hex(), newZipWritter, nil)
 			if errRes != nil {
 				return errRes
 			}

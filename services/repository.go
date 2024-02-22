@@ -4,8 +4,11 @@ import (
 	"archive/zip"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,6 +43,50 @@ func (r *RepositoryService) IsRepoOwner(idUser, idRepo primitive.ObjectID) (bool
 	}
 
 	return isOwner, nil
+}
+
+func (*RepositoryService) isChildDirectory(idChild string) (bool, *res.ErrorRes) {
+	idObjChild, err := primitive.ObjectIDFromHex(idChild)
+	if err != nil {
+		return false, &res.ErrorRes{
+			Err:        err,
+			StatusCode: http.StatusBadRequest,
+		}
+	}
+
+	exists, err := systemFileModel.Exists(bson.D{{
+		Key:   "_id",
+		Value: idObjChild,
+	}})
+	if err != nil {
+		return false, &res.ErrorRes{
+			Err:        err,
+			StatusCode: http.StatusServiceUnavailable,
+		}
+	}
+	if !exists {
+		return false, &res.ErrorRes{
+			Err:        errors.New("no existe el elemento"),
+			StatusCode: http.StatusNotFound,
+		}
+	}
+	isDirectory, err := systemFileModel.Exists(bson.D{
+		{
+			Key:   "_id",
+			Value: idObjChild,
+		},
+		{
+			Key:   "is_directory",
+			Value: true,
+		},
+	})
+	if err != nil {
+		return false, &res.ErrorRes{
+			Err:        err,
+			StatusCode: http.StatusServiceUnavailable,
+		}
+	}
+	return isDirectory, nil
 }
 
 func (r *RepositoryService) GetRepoAccess(
@@ -163,6 +210,35 @@ func (r *RepositoryService) GetRepositoryById(
 	}
 
 	return repository, nil
+}
+
+func (*RepositoryService) getChildName(idChild string) (string, *res.ErrorRes) {
+	idObjChild, err := primitive.ObjectIDFromHex(idChild)
+	if err != nil {
+		return "", &res.ErrorRes{
+			Err:        err,
+			StatusCode: http.StatusBadRequest,
+		}
+	}
+
+	opts := options.FindOne().SetProjection(bson.D{{
+		Key:   "name",
+		Value: 1,
+	}})
+	cursor := systemFileModel.Use().FindOne(
+		db.Ctx,
+		bson.D{{Key: "_id", Value: idObjChild}},
+		opts,
+	)
+	var child *models.SystemFile
+	if err := cursor.Decode(&child); err != nil {
+		return "", &res.ErrorRes{
+			Err:        err,
+			StatusCode: http.StatusServiceUnavailable,
+		}
+	}
+
+	return child.Name, nil
 }
 
 func (r *RepositoryService) addView(idUser string, idRepository primitive.ObjectID) error {
@@ -517,21 +593,43 @@ func (r *RepositoryService) GetUserRepositories(
 	return repositories, nil
 }
 
+func (repositoryService *RepositoryService) GetChildFileNameAndContentType(
+	idChild string,
+) (string, string, *res.ErrorRes) {
+	childName, err := repositoryService.getChildName(idChild)
+	if err != nil {
+		return "", "", err
+	}
+	split := strings.Split(childName, ".")
+	if len(split) == 1 {
+		return fmt.Sprintf("%s.zip", childName), "application/octet-stream", nil
+	}
+
+	return childName, mime.TypeByExtension(fmt.Sprintf(".%s", split[len(split)-1])), nil
+}
+
 func (r *RepositoryService) DownloadRepository(
 	repository,
 	child string,
 	w io.Writer,
-) (string, *res.ErrorRes) {
+) *res.ErrorRes {
 	zipWritter := zip.NewWriter(w)
 	defer zipWritter.Close()
 
 	if child != "" {
-		return "", systemFileService.DownloadChild(child, zipWritter)
+		isDirectory, err := r.isChildDirectory(child)
+		if err != nil {
+			return err
+		}
+		if !isDirectory {
+			return systemFileService.DownloadChild(child, zipWritter, &w)
+		}
+		return systemFileService.DownloadChild(child, zipWritter, nil)
 	}
 	// Update downloads
 	idObjRepository, err := primitive.ObjectIDFromHex(repository)
 	if err != nil {
-		return "", &res.ErrorRes{
+		return &res.ErrorRes{
 			Err:        err,
 			StatusCode: http.StatusBadRequest,
 		}
@@ -543,13 +641,13 @@ func (r *RepositoryService) DownloadRepository(
 		},
 	}})
 	if err != nil {
-		return "", &res.ErrorRes{
+		return &res.ErrorRes{
 			Err:        err,
 			StatusCode: http.StatusServiceUnavailable,
 		}
 	}
 
-	return "", systemFileService.DownloadRepo(repository, zipWritter)
+	return systemFileService.DownloadRepo(repository, zipWritter)
 }
 
 func (r *RepositoryService) ExistsRepoUser(
